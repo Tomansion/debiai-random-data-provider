@@ -1,13 +1,61 @@
 
-// To have a fonctionnal data-provider, you will need to provide the following functions:
+// This data provider will provide a number of project with a certain number of random data
+
+const sampleNumberToCreate = [
+    10,
+    100,
+    1000,
+    10000,
+    100000,
+    1000000,
+    2000000,
+    3000000,
+    4000000,
+    5000000,
+    6000000,
+    7000000,
+    8000000,
+    9000000,
+    10000000
+]
+
+const projectToCreate = sampleNumberToCreate.map(sampleNumber => {
+    return { name: `Project with ${sampleNumber} samples`, sampleNumber }
+})
+
+const randomContext = () => {
+    const context = ["A", "B", "C", "D", "E", "F", "G"]
+    return context[Math.floor(Math.random() * context.length)]
+}
 
 exports.info = (req, res) => {
     // Return the list of projects with their columns and results
+    // 'project_1' is the project id, it will be used as a path parameter in the API
+    // 'name' is the name of the project
+    // 'columns' is the list of columns of the project data
+    // 'expectedResults' is the list of columns of the model results, it can be empty
+    // 'nbSamples' [optional] is the number of samples in the project data
+    /* projects = {
+        project_1: {
+            name: "Project 1",
+            columns: [
+                { name: "Context 1", type: "text" },
+                { name: "Ground thruth 1", type: "number" },
+                { name: "Input 1", type: "number" },
+            ],
+            expectedResults: [
+                { name: "Model prediction", type: "number" },
+                { name: "Model error", type: "number" },
+            ],
+            nbSamples: 3,
+        }
+    } */
 
     try {
-        const projects = {
-            project_1: {
-                name: "Project 1",
+        const projects = {}
+        for (const project of projectToCreate) {
+            projects[project.name] = {
+                name: project.name,
                 columns: [
                     { name: "Context 1", type: "text" },
                     { name: "Ground thruth 1", type: "number" },
@@ -17,15 +65,10 @@ exports.info = (req, res) => {
                     { name: "Model prediction", type: "number" },
                     { name: "Model error", type: "number" },
                 ],
-                nbSamples: 3,
+                nbSamples: project.sampleNumber,
+                nbModels: 2,
             }
         }
-
-        // 'project_1' is the project id, it will be used as a path parameter in the API
-        // 'name' is the name of the project
-        // 'columns' is the list of columns of the project data
-        // 'expectedResults' is the list of columns of the model results, it can be empty
-        // 'nbSamples' [optional] is the number of samples in the project data
 
         res.status(200).send(projects)
     } catch (error) {
@@ -38,23 +81,29 @@ exports.dataIdList = (req, res) => {
     // Return the list of the project data ids
     try {
         const requestedProjectId = req.openapi.pathParams.view;
-        
-        const projectDataIds = [1, 2, 3]
-        // The data ids are 1, 2, 3, they will be requested by DebiAI
-        // they can be in any format, but please avoid caracters like : / ( ) < > . ; or ,
+        const start = new Date()
+        const requestedSampleNumber = projectToCreate.find(project => project.name == requestedProjectId).sampleNumber
 
         // In case of a nulber of sample > 10000, we will ask for a sequensed amount of sample ID
         // Set variables only if from & to in query parameters*
         const from = req.query.from
-        const to = req.query.to  
-    
+        const to = req.query.to
+
+        console.log(`Requested ${requestedSampleNumber} samples from`, from, "to", to);
+        console.log('ArrayCreation time: %dms', new Date() - start)
+        const projectDataIds = Array(requestedSampleNumber).fill().map((_, i) => i + 1)
         if (from !== undefined && to !== undefined) {
             // Fetch data with from and to filter;
+            console.log("Sending data ids");
             res.status(200).send(projectDataIds.slice(from, to));
         }
         else {
+            console.log("Sending data ids");
             res.status(200).send(projectDataIds)
         }
+        console.log('Execution time: %dms', new Date() - start)
+
+
     } catch (error) {
         console.log(error)
         res.status(500).send(error)
@@ -64,20 +113,11 @@ exports.dataIdList = (req, res) => {
 exports.data = (req, res) => {
     // Return the data for the given data ids
     try {
-        const requestedProjectId = req.openapi.pathParams.view;
         const requestedDataIds = req.body; // List of data ids requested by DebiAI
 
-        // If the requested ids are [1, 2, 3], the following data will be returned:
-        const projectData = {
-            1: ["Context a", 11, 4],
-            2: ["Context b", 23, 2],
-            3: ["Context c", -2, 0]
-        }
-
-        // The object keys are the data ids, the values are the data
-        // The data array follows the columns order defined in the project info
-        // Data containing '', null or undefined aren't supported by DebiAI
-        // Data in a format other than string or number aren't supported by DebiAI
+        projectData = {}
+        for (const dataId of requestedDataIds)
+            projectData[dataId] = [randomContext(), Math.random() * 100, (Math.random() + 1) ** 2]
 
         res.status(200).send(projectData)
 
@@ -191,4 +231,3 @@ exports.selectionDataIdList = (req, res) => {
         res.status(500).send(error)
     }
 }
-
