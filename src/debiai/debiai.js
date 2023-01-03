@@ -2,25 +2,26 @@
 // This data provider will provide a number of project with a certain number of random data
 
 const sampleNumberToCreate = [
-    10,
-    100,
-    1000,
-    10000,
-    100000,
-    1000000,
-    2000000,
-    3000000,
-    4000000,
-    5000000,
-    6000000,
-    7000000,
-    8000000,
-    9000000,
-    10000000
+    // 10,
+    // 100,
+    // 1000,
+    // 10000,
+    50000,
+    // 100000,
+    // 1000000,
+    // 2000000,
+    // 3000000,
+    // 4000000,
+    // 5000000,
+    // 6000000,
+    // 7000000,
+    // 8000000,
+    // 9000000,
+    // 10000000,
 ]
 
 const projectToCreate = sampleNumberToCreate.map(sampleNumber => {
-    return { name: `Project with ${sampleNumber} samples`, sampleNumber }
+    return { name: `P with ${sampleNumber} samples`, sampleNumber }
 })
 
 const randomContext = () => {
@@ -57,12 +58,12 @@ exports.info = (req, res) => {
             projects[project.name] = {
                 name: project.name,
                 columns: [
-                    { name: "Context 1", type: "text" },
-                    { name: "Ground thruth 1", type: "number" },
-                    { name: "Input 1", type: "number" },
+                    { name: "Random Context", type: "text" },
+                    { name: "Random GDT", type: "number" },
+                    { name: "Input same as ID", type: "number" },
                 ],
                 expectedResults: [
-                    { name: "Model prediction", type: "number" },
+                    { name: "Model prediction same as ID", type: "number" },
                     { name: "Model error", type: "number" },
                 ],
                 nbSamples: project.sampleNumber,
@@ -90,14 +91,16 @@ exports.dataIdList = (req, res) => {
         const to = req.query.to
 
         console.log(`Requested ${requestedSampleNumber} samples from`, from, "to", to);
-        console.log('ArrayCreation time: %dms', new Date() - start)
-        const projectDataIds = Array(requestedSampleNumber).fill().map((_, i) => i + 1)
         if (from !== undefined && to !== undefined) {
             // Fetch data with from and to filter;
+            const projectDataIds = Array(to - from + 1).fill().map((_, i) => i + 1 + from)
+            console.log('ArrayCreation time: %dms', new Date() - start)
             console.log("Sending data ids");
-            res.status(200).send(projectDataIds.slice(from, to));
+            res.status(200).send(projectDataIds);
         }
         else {
+            const projectDataIds = Array(requestedSampleNumber).fill().map((_, i) => i + 1)
+            console.log('ArrayCreation time: %dms', new Date() - start)
             console.log("Sending data ids");
             res.status(200).send(projectDataIds)
         }
@@ -117,7 +120,11 @@ exports.data = (req, res) => {
 
         projectData = {}
         for (const dataId of requestedDataIds)
-            projectData[dataId] = [randomContext(), Math.random() * 100, (Math.random() + 1) ** 2]
+            projectData[dataId] = [
+                randomContext(),
+                Math.random() * 100,
+                dataId
+            ]
 
         res.status(200).send(projectData)
 
@@ -131,17 +138,20 @@ exports.modelList = (req, res) => {
     // Return the list of the project models
     try {
         const requestedProjectId = req.openapi.pathParams.view;
+        const requestedSampleNumber = projectToCreate.find(project => project.name == requestedProjectId).sampleNumber
 
         const projectModels = [
+            // 1 sample 1 result
             {
                 id: "model_1",
                 name: "Model 1",
-                nbResults: 2
+                nbResults: requestedSampleNumber
             },
+            // 2 samples 1 result
             {
                 id: "model_2",
                 name: "Model 2",
-                nbResults: 2
+                nbResults: Math.floor(requestedSampleNumber / 2)
             },
         ]
 
@@ -162,17 +172,20 @@ exports.modelEvaluatedDataIdList = (req, res) => {
     try {
         const requestedProjectId = req.openapi.pathParams.view;
         const requestedModelId = req.openapi.pathParams.modelId;
+        const requestedSampleNumber = projectToCreate.find(project => project.name == requestedProjectId).sampleNumber
 
-        if (requestedModelId == "model_1")
-            res.status(200).send([1, 2])
-        else if (requestedModelId == "model_2")
-            res.status(200).send([2, 3])
+        if (requestedModelId == "model_1") {
+            // 1 sample 1 result
+            const projectDataIds = Array(requestedSampleNumber).fill().map((_, i) => i + 1)
+            res.status(200).send(projectDataIds)
+        }
+        else if (requestedModelId == "model_2") {
+            // 2 samples 1 result
+            const projectDataIds = Array(Math.floor(requestedSampleNumber / 2)).fill().map((_, i) => (i * 2) + 1)
+            res.status(200).send(projectDataIds)
+        }
         else
             res.status(404).send("Model not found")
-
-        // The provided ids have to be in the data ids list
-        // Here, the Model 1 has been evaluated on data ids 1 and 2
-        // and the Model 2 has been evaluated on data ids 2 and 3
 
     } catch (error) {
         console.log(error)
@@ -187,22 +200,8 @@ exports.modelResults = (req, res) => {
         const requestedModelId = req.openapi.pathParams.modelId;
         const requestedDataIds = req.body;
 
-        const model1Results = {
-            1: [9, -2],
-            2: [26, 3],
-        }
-        const model2Results = {
-            2: [23, 0],
-            3: [-6, -4],
-        }
-
-        const modelResults = requestedModelId == "model_1" ? model1Results : model2Results
-
         const results = {}
-        for (const dataId of requestedDataIds) if (modelResults[dataId]) results[dataId] = modelResults[dataId]
-
-        // The results object keys are the requested data ids, the values are the model results
-        // The model results arrays follow the expectedResults order defined in the project info
+        for (const dataId of requestedDataIds) results[dataId] = [dataId, Math.random() * 100]
         res.status(200).send(results)
 
     } catch (error) {
