@@ -85,18 +85,27 @@ exports.dataIdList = (req, res) => {
         const start = new Date()
         const requestedSampleNumber = projectToCreate.find(project => project.name == requestedProjectId).sampleNumber
 
+
+        const projectDataIds = [1, 2, 3]
+        // The data ids are 1, 2, 3, they will be requested by DebiAI
+        // they can be in any format, but please avoid caracters like : / ( ) < > . ; or ,
+
         // In case of a nulber of sample > 10000, we will ask for a sequensed amount of sample ID
         // Set variables only if from & to in query parameters*
         const from = req.query.from
         const to = req.query.to
 
         console.log(`Requested ${requestedSampleNumber} samples from`, from, "to", to);
+        const to = req.query.to
+
         if (from !== undefined && to !== undefined) {
             // Fetch data with from and to filter;
             const projectDataIds = Array(to - from + 1).fill().map((_, i) => i + 1 + from)
             console.log('ArrayCreation time: %dms', new Date() - start)
             console.log("Sending data ids");
             res.status(200).send(projectDataIds);
+            // Add + 1 because slice function excluded last value
+            res.status(200).send(projectDataIds.slice(from, to + 1));
         }
         else {
             const projectDataIds = Array(requestedSampleNumber).fill().map((_, i) => i + 1)
@@ -184,6 +193,12 @@ exports.modelEvaluatedDataIdList = (req, res) => {
             const projectDataIds = Array(Math.floor(requestedSampleNumber / 2)).fill().map((_, i) => (i * 2) + 1)
             res.status(200).send(projectDataIds)
         }
+        if (requestedModelId == "model_1")
+            res.status(200).send([1, 2])
+        else if (requestedModelId == "model_2")
+            res.status(200).send([2, 3])
+        else if (requestedModelId == "model_3")
+            res.status(200).send([])
         else
             res.status(404).send("Model not found")
 
@@ -213,8 +228,29 @@ exports.modelResults = (req, res) => {
 // Selections
 exports.selectionList = (req, res) => {
     // Return the project selections
+    /*
+        Response body : [{
+            "id": "string",
+            "name": "string",
+            "nbSamples": "number"
+        }]
+    */
     try {
-        res.status(200).send([])
+        const requestedProjectId = req.openapi.pathParams.view;
+        const firstSelection = {
+            "id": "first-selection",
+            "name": "First selection",
+            "nbSamples": 2
+        }
+        const secondSelection = {
+            "id": "second-selection",
+            "name": "second selection"
+        }
+        const thirdSelection = {
+            "id": "third-selection"
+        }
+
+        res.status(200).send([firstSelection, secondSelection, thirdSelection])
     } catch (error) {
         console.log(error)
         res.status(500).send(error)
@@ -223,10 +259,58 @@ exports.selectionList = (req, res) => {
 
 exports.selectionDataIdList = (req, res) => {
     // Return the list of a selection samples ids
+    /*
+        Response body : 
+        ["id 1", 10, "id 3", "id 4", "39"]
+    */
     try {
-        res.status(200).send([])
+        const requestedProjectId = req.openapi.pathParams.view;
+        const requestedSelectionId = req.openapi.pathParams.selectionId
+
+        let idList = []
+        if (requestedSelectionId === "first-selection") {
+            idList = [1, 2]
+        }
+        else if (requestedSelectionId === "second-selection") {
+            idList = [2, 3]
+        }
+        else if (requestedSelectionId === "third-selection") {
+            idList = [1]
+        }
+
+        res.status(200).send(idList)
     } catch (error) {
         console.log(error)
         res.status(500).send(error)
+    }
+}
+
+
+
+exports.createSelection = (req, res) => {
+    // Return no content http response (204)
+    /* Create a selection from the idList ids given in request body
+    The route is called by DebiAI user Interface
+    Optionnal route 
+    If the data provider is not designed to support creation, throw an error
+
+    RequestBody: 
+    {
+        "name": "my selection",
+        "idList": [
+            "sample-1",
+            "sample-2",
+            "sample-3"
+        ]
+    }
+    */
+    try {
+        const requestedProjectId = req.openapi.pathParams.view;
+        const requestedDataIds = req.body;
+
+        res.status(204).end()
+    } catch (error) {
+        console.log(error);
+        res.status(500).send(error);
     }
 }
