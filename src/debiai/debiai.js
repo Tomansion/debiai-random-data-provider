@@ -4,13 +4,13 @@
 const sampleNumberToCreate = [
     // 10,
     // 100,
-    // 1000,
+    1000,
     // 10000,
     50000,
     // 100000,
     // 1000000,
     // 2000000,
-    // 3000000,
+    3000000,
     // 4000000,
     // 5000000,
     // 6000000,
@@ -78,15 +78,13 @@ exports.info = (req, res) => {
     }
 }
 
-exports.dataIdList = (req, res) => {
+exports.dataIdList = async (req, res) => {
     // Return the list of the project data ids
     try {
         const requestedProjectId = req.openapi.pathParams.view;
         const start = new Date()
         const requestedSampleNumber = projectToCreate.find(project => project.name == requestedProjectId).sampleNumber
 
-
-        const projectDataIds = [1, 2, 3]
         // The data ids are 1, 2, 3, they will be requested by DebiAI
         // they can be in any format, but please avoid caracters like : / ( ) < > . ; or ,
 
@@ -95,17 +93,20 @@ exports.dataIdList = (req, res) => {
         const from = req.query.from
         const to = req.query.to
 
+        // // Wait for 1 second to simulate a long request
+        // const msToWait = from === undefined ? 1000 : from / 20
+        // console.log("\nWaiting " + (msToWait / 1000) + " s");
+        // await new Promise(resolve => setTimeout(resolve, msToWait));
+
         console.log(`Requested ${requestedSampleNumber} samples from`, from, "to", to);
-        const to = req.query.to
 
         if (from !== undefined && to !== undefined) {
             // Fetch data with from and to filter;
             const projectDataIds = Array(to - from + 1).fill().map((_, i) => i + 1 + from)
             console.log('ArrayCreation time: %dms', new Date() - start)
             console.log("Sending data ids");
-            res.status(200).send(projectDataIds);
             // Add + 1 because slice function excluded last value
-            res.status(200).send(projectDataIds.slice(from, to + 1));
+            res.status(200).send(projectDataIds);
         }
         else {
             const projectDataIds = Array(requestedSampleNumber).fill().map((_, i) => i + 1)
@@ -193,12 +194,6 @@ exports.modelEvaluatedDataIdList = (req, res) => {
             const projectDataIds = Array(Math.floor(requestedSampleNumber / 2)).fill().map((_, i) => (i * 2) + 1)
             res.status(200).send(projectDataIds)
         }
-        if (requestedModelId == "model_1")
-            res.status(200).send([1, 2])
-        else if (requestedModelId == "model_2")
-            res.status(200).send([2, 3])
-        else if (requestedModelId == "model_3")
-            res.status(200).send([])
         else
             res.status(404).send("Model not found")
 
@@ -225,6 +220,8 @@ exports.modelResults = (req, res) => {
     }
 }
 
+
+const selections = {}
 // Selections
 exports.selectionList = (req, res) => {
     // Return the project selections
@@ -237,26 +234,13 @@ exports.selectionList = (req, res) => {
     */
     try {
         const requestedProjectId = req.openapi.pathParams.view;
-        const firstSelection = {
-            "id": "first-selection",
-            "name": "First selection",
-            "nbSamples": 2
-        }
-        const secondSelection = {
-            "id": "second-selection",
-            "name": "second selection"
-        }
-        const thirdSelection = {
-            "id": "third-selection"
-        }
-
-        res.status(200).send([firstSelection, secondSelection, thirdSelection])
+        if (selections[requestedProjectId] == undefined) selections[requestedProjectId] = {}
+        res.status(200).send(Object.values(selections[requestedProjectId]))
     } catch (error) {
         console.log(error)
         res.status(500).send(error)
     }
 }
-
 exports.selectionDataIdList = (req, res) => {
     // Return the list of a selection samples ids
     /*
@@ -267,26 +251,13 @@ exports.selectionDataIdList = (req, res) => {
         const requestedProjectId = req.openapi.pathParams.view;
         const requestedSelectionId = req.openapi.pathParams.selectionId
 
-        let idList = []
-        if (requestedSelectionId === "first-selection") {
-            idList = [1, 2]
-        }
-        else if (requestedSelectionId === "second-selection") {
-            idList = [2, 3]
-        }
-        else if (requestedSelectionId === "third-selection") {
-            idList = [1]
-        }
-
+        const idList = selections[requestedProjectId][requestedSelectionId].idList
         res.status(200).send(idList)
     } catch (error) {
         console.log(error)
         res.status(500).send(error)
     }
 }
-
-
-
 exports.createSelection = (req, res) => {
     // Return no content http response (204)
     /* Create a selection from the idList ids given in request body
@@ -306,8 +277,23 @@ exports.createSelection = (req, res) => {
     */
     try {
         const requestedProjectId = req.openapi.pathParams.view;
-        const requestedDataIds = req.body;
+        const requestedData = req.body;
+        console.log(requestedData)
+        const selectionId = requestedData.name
 
+        if (selections[requestedProjectId] == undefined) selections[requestedProjectId] = {}
+        
+        // The samples ids sent by DebiAI are in a str format
+        // We need to convert them to int
+
+        const idList = requestedData.idList.map(id => parseInt(id))
+
+        selections[requestedProjectId][selectionId] = {
+            id: selectionId,
+            name: requestedData.name,
+            idList: idList,
+            nbSamples: idList.length
+        }
         res.status(204).end()
     } catch (error) {
         console.log(error);
